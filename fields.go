@@ -74,3 +74,14 @@ func (eF *encodedFields) Index(key string) int {
 	}
 	return -1
 }
+
+func (eF *encodedFields) Grow(length int) *encodedFields {
+	if len(*eF)+length > cap(*eF) {
+		x := make([]encodedField, len(*eF), len(*eF)+length)
+		copy(x, *eF)
+		*eF = x
+	}
+	return eF
+}
+
+func (eF *encodedFields) Reset() *encodedFields { *eF = (*eF)[:0]; return eF }

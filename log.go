@@ -38,7 +38,9 @@ func New() ULog {
 // With returns a copy of the ULog instance with the provided fields preset for every subsequent call.
 func (u ULog) With(fields ...Field) ULog {
 	v := u
-	ff := make(encodedFields, 0, len(fields)+len(v.fields))
+	ff := scratchFields.Get().(*encodedFields).
+		Reset().
+		Grow(len(fields) + len(v.fields))
 	v.fields = *ff.AppendEncoded(v.fields).AppendFields(fields)
 	return v
 }
@@ -84,17 +86,10 @@ func (u ULog) Write(msg string, fields ...Field) {
 		msgKey = DefaultMessageKey
 	}
 
-	sF := scratchFields.Get().(*encodedFields)
-	sb := scratchBuffers.Get().(*bytes.Buffer)
-	defer func() {
-		*sF = (*sF)[:0]
-		scratchFields.Put(sF)
-		sb.Reset()
-		scratchBuffers.Put(sb)
-	}()
-
-	*sF = (*sF)[:0]
-	eF := sF.AppendEncoded(u.fields).AppendFields(fields)
+	eF := scratchFields.Get().(*encodedFields).
+		Reset().
+		Grow(len(u.fields) + len(fields)/2).
+		AppendEncoded(u.fields).AppendFields(fields)
 
 	var fieldsLen int
 	for _, field := range *eF {
@@ -105,6 +100,7 @@ func (u ULog) Write(msg string, fields ...Field) {
 		fieldsLen += 2 + len(key) + 2 + len(field.Value())
 	}
 
+	sb := scratchBuffers.Get().(*bytes.Buffer)
 	sb.Reset()
 	sb.Grow(3 + len(tsKey) + 4 + len(time.RFC3339) + 4 + len(msgKey) + 3 + 1 + len(msg) + 1 + fieldsLen + 2)
 	sb.WriteString(`{ "`)
@@ -114,7 +110,7 @@ func (u ULog) Write(msg string, fields ...Field) {
 	sb.WriteString(`", "`)
 	sb.WriteString(msgKey)
 	sb.WriteString(`": `)
-	json.NewEncoder(sb).Encode(msg)
+	_ = json.NewEncoder(sb).Encode(msg)
 
 	for _, field := range *eF {
 		key := field.Key()
@@ -132,7 +128,11 @@ func (u ULog) Write(msg string, fields ...Field) {
 	if w == nil {
 		w = os.Stderr
 	}
-	w.Write(sb.Bytes())
+	_, _ = w.Write(sb.Bytes())
+
+	scratchFields.Put(eF.Reset())
+	sb.Reset()
+	scratchBuffers.Put(sb)
 }
 
 func toJSON(field Field) string {
