@@ -29,7 +29,7 @@ ulog is the antidote to modern loggers.
 ```
 
 ```json
-{ "msg": "2019-11-18T14:00:32Z", "msg": "a message", "field": "value", "a_number": 123, "a_bool": false }
+{ "ts": "2019-11-18T14:00:32Z", "msg": "a message", "field": "value", "a_number": 123, "a_bool": false }
 ```
 
 ## With Context
