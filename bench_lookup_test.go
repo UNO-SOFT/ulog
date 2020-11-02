@@ -1,6 +1,12 @@
+// Copyright 2020 Tamás Gulácsi.
+// Copyright 2019 The Antilog Authors.
+//
+// SPDX-License-Identifier: MIT
+
+// cop
 // +build lookup
 
-package antilog_test
+package ulog_test
 
 import (
 	"strconv"

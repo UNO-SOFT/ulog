@@ -1,9 +1,16 @@
-package antilog
+// Copyright 2020 Tamás Gulácsi.
+// Copyright 2019 The Antilog Authors.
+//
+// SPDX-License-Identifier: MIT
+
+package ulog_test
 
 import (
 	"io/ioutil"
 	"testing"
 	"time"
+
+	"github.com/UNO-SOFT/ulog"
 )
 
 var (
@@ -11,7 +18,7 @@ var (
 )
 
 func BenchmarkLogEmpty(b *testing.B) {
-	logger := New()
+	logger := ulog.New()
 	logger.Writer = ioutil.Discard
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
@@ -22,7 +29,7 @@ func BenchmarkLogEmpty(b *testing.B) {
 }
 
 func BenchmarkInfo(b *testing.B) {
-	logger := WithWriter(ioutil.Discard)
+	logger := ulog.WithWriter(ioutil.Discard)
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
@@ -32,7 +39,7 @@ func BenchmarkInfo(b *testing.B) {
 }
 
 func BenchmarkContextFields(b *testing.B) {
-	logger := WithWriter(ioutil.Discard).With(
+	logger := ulog.WithWriter(ioutil.Discard).With(
 		"string", "four!",
 		"time", time.Time{},
 		"int", 123,
@@ -46,7 +53,7 @@ func BenchmarkContextFields(b *testing.B) {
 }
 
 func BenchmarkContextAppend(b *testing.B) {
-	logger := WithWriter(ioutil.Discard).With("foo", "bar")
+	logger := ulog.WithWriter(ioutil.Discard).With("foo", "bar")
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
@@ -56,7 +63,7 @@ func BenchmarkContextAppend(b *testing.B) {
 }
 
 func BenchmarkLogFields(b *testing.B) {
-	logger := WithWriter(ioutil.Discard)
+	logger := ulog.WithWriter(ioutil.Discard)
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {

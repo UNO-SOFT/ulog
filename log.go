@@ -1,14 +1,17 @@
-//Package antilog is the antidote to modern loggers.
+// Copyright 2020 Tamás Gulácsi.
+// Copyright 2019 The Antilog Authors.
 //
-// AntiLog only logs JSON formatted output. Structured logging is the only good
-// logging.
+// SPDX-License-Identifier: MIT
+
+// Package ulog is the antidote to modern loggers.
 //
-// AntiLog does not have log levels. If you don't want something logged, don't
-// log it.
+// ulog only logs JSON formatted output. Structured logging is the only good logging.
 //
-// AntiLog does support setting fields in context. Useful for building a log
-// context over the course of an operation.
-package antilog
+// ulog does not have log levels. If you don't want something logged, don't log it.
+//
+// ulog does support setting fields in context.
+// Useful for building a log context over the course of an operation.
+package ulog
 
 import (
 	"bytes"
@@ -18,47 +21,75 @@ import (
 	"time"
 )
 
-// AntiLog is the antidote to modern loggers
-type AntiLog struct {
-	Fields EncodedFields
-	Writer io.Writer
+// ULog is the antidote to modern loggers
+type ULog struct {
+	Fields                   EncodedFields
+	Writer                   io.Writer
+	TimestampKey, MessageKey string `json:"-"`
 }
 
-// New instance of AntiLog
-func New() AntiLog {
-	return AntiLog{}
+// New instance of ULog
+func New() ULog {
+	return ULog{TimestampKey: DefaultTimestampKey, MessageKey: DefaultMessageKey}
 }
 
-// With returns a copy of the AntiLog instance with the provided fields preset for every subsequent call.
-func (a AntiLog) With(fields ...Field) AntiLog {
-	a.Fields = encodeFieldList(fields).PrependUnique(a.Fields)
-	return a
+// With returns a copy of the ULog instance with the provided fields preset for every subsequent call.
+func (u ULog) With(fields ...Field) ULog {
+	u.Fields = encodeFieldList(fields).PrependUnique(u.Fields)
+	return u
 }
+
+const (
+	DefaultTimestampKey = "ts"
+	DefaultMessageKey   = "msg"
+)
 
 // Write a JSON message to the configured writer or os.Stderr.
 //
-// Includes the message with the key `message`. Includes the timestamp with the
-// key `timestamp`. The timestamp field is always first and the message second.
+// Includes the message with the key `msg`. Includes the timestamp with the
+// key `ts`. The timestamp field is always first and the message second.
 //
-// Fields in context will not be overridden. AntiLog will log the same key
+// Fields in context will not be overridden. ULog will log the same key
 // multiple times if it is set multiple times. If you don't want that, don't
 // specify it multiple times.
-func (a AntiLog) Write(msg string, fields ...Field) {
+func (u ULog) Write(msg string, fields ...Field) {
 	now := time.Now().UTC()
 
-	encodedFields := EncodedFields{}.
+	encodedFields := make(EncodedFields, 0, len(fields)+len(u.Fields)).
 		PrependUnique(encodeFieldList(fields)).
-		PrependUnique(a.Fields)
+		PrependUnique(u.Fields)
+
+	tsKey := u.TimestampKey
+	if tsKey == "" {
+		tsKey = DefaultTimestampKey
+	}
+	msgKey := u.MessageKey
+	if msgKey == "" {
+		msgKey = DefaultMessageKey
+	}
+	var fieldsLen int
+	for _, field := range encodedFields {
+		key := field.Key()
+		if key == msgKey || key == tsKey {
+			continue
+		}
+		fieldsLen += 2 + len(key) + 2 + len(field.Value())
+	}
 
 	var sb bytes.Buffer
-	sb.WriteString(`{ "timestamp": "`)
+	sb.Grow(3 + len(tsKey) + 4 + len(time.RFC3339) + 4 + len(msgKey) + 3 + 1 + len(msg) + 1 + fieldsLen + 2)
+	sb.WriteString(`{ "`)
+	sb.WriteString(tsKey)
+	sb.WriteString(`": "`)
 	sb.WriteString(now.Format(time.RFC3339))
-	sb.WriteString(`", "message": `)
+	sb.WriteString(`", "`)
+	sb.WriteString(msgKey)
+	sb.WriteString(`": `)
 	json.NewEncoder(&sb).Encode(msg)
 
 	for _, field := range encodedFields {
 		key := field.Key()
-		if key == "message" || key == "timestamp" {
+		if key == msgKey || key == tsKey {
 			continue
 		}
 		sb.WriteString(", ")
@@ -68,7 +99,7 @@ func (a AntiLog) Write(msg string, fields ...Field) {
 	}
 	sb.WriteString(` }`)
 
-	w := a.Writer
+	w := u.Writer
 	if w == nil {
 		w = os.Stderr
 	}

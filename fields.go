@@ -1,4 +1,9 @@
-package antilog
+// Copyright 2020 Tamás Gulácsi.
+// Copyright 2019 The Antilog Authors.
+//
+// SPDX-License-Identifier: MIT
+
+package ulog
 
 // Field type for all inputs
 type Field interface{}

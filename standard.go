@@ -1,22 +1,24 @@
-package antilog
+// Copyright 2019 The Antilog Authors.
+//
+// SPDX-License-Identifier: MIT
+
+package ulog
 
 import "io"
 
-var antilog = AntiLog{}
+var uLog = New()
 
-// WithWriter returns a copy of the standard AntiLog instance configured to write to the given writer
-func WithWriter(w io.Writer) AntiLog {
-	return AntiLog{
-		Writer: w,
-	}
+// WithWriter returns a copy of the standard ULog instance configured to write to the given writer
+func WithWriter(w io.Writer) ULog {
+	return ULog{Writer: w, MessageKey: DefaultMessageKey, TimestampKey: DefaultTimestampKey}
 }
 
-// With returns a copy of the standard AntiLog instance configured with the provided fields
-func With(fields ...Field) AntiLog {
-	return antilog.With(fields...)
+// With returns a copy of the standard ULog instance configured with the provided fields
+func With(fields ...Field) ULog {
+	return uLog.With(fields...)
 }
 
-// Write a message using the standard AntiLog instance
+// Write a message using the standard ULog instance
 func Write(msg string, fields ...Field) {
-	antilog.Write(msg, fields...)
+	uLog.Write(msg, fields...)
 }

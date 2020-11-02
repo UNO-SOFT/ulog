@@ -1,4 +1,8 @@
-package antilog_test
+// Copyright 2019 The Antilog Authors.
+//
+// SPDX-License-Identifier: MIT
+
+package ulog_test
 
 import (
 	"bytes"
@@ -8,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shamaazi/antilog"
+	"github.com/UNO-SOFT/ulog"
 	"github.com/stretchr/testify/require"
 )
 
@@ -31,15 +35,15 @@ func parseTime(i interface{}) (t time.Time) {
 
 func TestHasTimestampAndMessage(t *testing.T) {
 	var buffer bytes.Buffer
-	logger := antilog.WithWriter(&buffer)
+	logger := ulog.WithWriter(&buffer)
 
 	logger.Write("this is a test")
 
 	logLine := parseLogLine(buffer.Bytes())
 
 	require.Len(t, logLine, 2)
-	require.WithinDuration(t, time.Now(), parseTime(logLine["timestamp"]), 1*time.Second)
-	require.Equal(t, "this is a test", logLine["message"])
+	require.WithinDuration(t, time.Now(), parseTime(logLine[ulog.DefaultTimestampKey]), 1*time.Second)
+	require.Equal(t, "this is a test", logLine[ulog.DefaultMessageKey])
 }
 
 func TestHandlesBasicTypes(t *testing.T) {
@@ -53,7 +57,7 @@ func TestHandlesBasicTypes(t *testing.T) {
 	} {
 		t.Run(test, func(t *testing.T) {
 			var buffer bytes.Buffer
-			logger := antilog.WithWriter(&buffer)
+			logger := ulog.WithWriter(&buffer)
 
 			logger.Write("this is a test", test, value)
 			logLine := parseLogLine(buffer.Bytes())
@@ -66,21 +70,21 @@ func TestHandlesBasicTypes(t *testing.T) {
 
 func TestOmitsUnknownTypes(t *testing.T) {
 	var buffer bytes.Buffer
-	logger := antilog.WithWriter(&buffer)
+	logger := ulog.WithWriter(&buffer)
 
-	logger.Write("this is a test", "antilog", logger)
+	logger.Write("this is a test", "ulog", logger)
 	logLine := parseLogLine(buffer.Bytes())
 
 	expected := map[string]interface{}{
 		"Fields": nil,
 		"Writer": map[string]interface{}{},
 	}
-	require.EqualValues(t, expected, logLine["antilog"])
+	require.EqualValues(t, expected, logLine["ulog"])
 }
 
 func TestIncludesContextFields(t *testing.T) {
 	var buffer bytes.Buffer
-	logger := antilog.WithWriter(&buffer).With("test", "hello")
+	logger := ulog.WithWriter(&buffer).With("test", "hello")
 
 	logger.Write("this is a test")
 	logLine := parseLogLine(buffer.Bytes())
@@ -90,7 +94,7 @@ func TestIncludesContextFields(t *testing.T) {
 
 func TestAppendsLoggedFieldsToContextFields(t *testing.T) {
 	var buffer bytes.Buffer
-	logger := antilog.WithWriter(&buffer).With("test", "hello")
+	logger := ulog.WithWriter(&buffer).With("test", "hello")
 
 	logger.Write("this is a test", "tomato", "banana")
 	logLine := parseLogLine(buffer.Bytes())
@@ -100,7 +104,7 @@ func TestAppendsLoggedFieldsToContextFields(t *testing.T) {
 
 func TestPicksLastDuplicateValue(t *testing.T) {
 	var buffer bytes.Buffer
-	logger := antilog.WithWriter(&buffer)
+	logger := ulog.WithWriter(&buffer)
 
 	logger.Write("this is a test", "tomato", 1, "potato", 2, "pineapple", 3, "potato", 4)
 	require.NotContains(t, buffer.String(), `"potato": 2`)
@@ -112,7 +116,7 @@ func TestPicksLastDuplicateValue(t *testing.T) {
 
 func TestOverridesContextValue(t *testing.T) {
 	var buffer bytes.Buffer
-	logger := antilog.WithWriter(&buffer).With("potato", 2)
+	logger := ulog.WithWriter(&buffer).With("potato", 2)
 
 	logger.Write("this is a test", "tomato", 1, "pineapple", 3, "potato", 4)
 	require.NotContains(t, buffer.String(), `"potato": 2`)
@@ -124,7 +128,7 @@ func TestOverridesContextValue(t *testing.T) {
 
 func TestReplacesContextValue(t *testing.T) {
 	var buffer bytes.Buffer
-	logger := antilog.WithWriter(&buffer).With("potato", 2)
+	logger := ulog.WithWriter(&buffer).With("potato", 2)
 
 	logger = logger.With("potato", 4)
 
@@ -138,7 +142,7 @@ func TestReplacesContextValue(t *testing.T) {
 
 func TestLogsErrors(t *testing.T) {
 	var buffer bytes.Buffer
-	logger := antilog.WithWriter(&buffer)
+	logger := ulog.WithWriter(&buffer)
 
 	logger.Write("this is a test", "error", errors.New("an error occurred"))
 	logLine := parseLogLine(buffer.Bytes())
@@ -148,7 +152,7 @@ func TestLogsErrors(t *testing.T) {
 
 func TestLogsNilErrors(t *testing.T) {
 	var buffer bytes.Buffer
-	logger := antilog.WithWriter(&buffer)
+	logger := ulog.WithWriter(&buffer)
 
 	var err error
 	logger.Write("this is a test", "error", err)
@@ -188,7 +192,7 @@ func TestHandlesNestedStructs(t *testing.T) {
 	}
 
 	var buffer bytes.Buffer
-	logger := antilog.WithWriter(&buffer)
+	logger := ulog.WithWriter(&buffer)
 
 	logger.Write("this is a test", "struct test", inputStructure)
 
@@ -216,7 +220,7 @@ func TestHandlesStructTags(t *testing.T) {
 	}
 
 	var buffer bytes.Buffer
-	logger := antilog.WithWriter(&buffer)
+	logger := ulog.WithWriter(&buffer)
 
 	logger.Write("this is a test", "struct test", inputStructure)
 
@@ -265,7 +269,7 @@ func TestHandlesDeeplyNestedTypes(t *testing.T) {
 	}
 
 	var buffer bytes.Buffer
-	logger := antilog.WithWriter(&buffer)
+	logger := ulog.WithWriter(&buffer)
 
 	logger.Write("this is a test", "a deep structure", inputStructure)
 	logLine := parseLogLine(buffer.Bytes())
@@ -275,7 +279,7 @@ func TestHandlesDeeplyNestedTypes(t *testing.T) {
 
 func TestAlteringMapsDoesNotChangeLog(t *testing.T) {
 	var buffer bytes.Buffer
-	logger := antilog.WithWriter(&buffer)
+	logger := ulog.WithWriter(&buffer)
 
 	values := map[string]string{
 		"woo": "yay",
@@ -293,7 +297,7 @@ func TestAlteringMapsDoesNotChangeLog(t *testing.T) {
 
 func BenchmarkLogWithNoFields(b *testing.B) {
 	var buffer bytes.Buffer
-	logger := antilog.WithWriter(&buffer)
+	logger := ulog.WithWriter(&buffer)
 
 	for n := 0; n < b.N; n++ {
 		logger.Write("a message")
@@ -302,7 +306,7 @@ func BenchmarkLogWithNoFields(b *testing.B) {
 
 func BenchmarkLogWithComplexFields(b *testing.B) {
 	var buffer bytes.Buffer
-	logger := antilog.WithWriter(&buffer)
+	logger := ulog.WithWriter(&buffer)
 	inputStructure := map[string]interface{}{
 		"array_with_various_types": []interface{}{
 			"string",
@@ -346,7 +350,7 @@ func BenchmarkLogWithComplexFields(b *testing.B) {
 
 func BenchmarkLogWithComplexFieldsInContext(b *testing.B) {
 	var buffer bytes.Buffer
-	logger := antilog.WithWriter(&buffer).With("complex field", map[string]interface{}{
+	logger := ulog.WithWriter(&buffer).With("complex field", map[string]interface{}{
 		"array_with_various_types": []interface{}{
 			"string",
 			123.456,
