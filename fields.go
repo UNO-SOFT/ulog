@@ -9,55 +9,68 @@ package ulog
 type Field interface{}
 
 // EncodedField type for storing fields in after conversion to JSON
-type EncodedField [2]string
+type encodedField [2]string
 
 // Key of the encoded field
-func (f EncodedField) Key() string {
+func (f encodedField) Key() string {
 	return f[0]
 }
 
 // Value of the encoded field
-func (f EncodedField) Value() string {
+func (f encodedField) Value() string {
 	return f[1]
 }
 
-// EncodedFields is a list of encoded fields
-type EncodedFields []EncodedField
+// encodedFields is a list of encoded fields
+type encodedFields []encodedField
 
-// PrependUnique encoded field if the key is not already set
-func (f EncodedFields) PrependUnique(fields EncodedFields) EncodedFields {
-	var res EncodedFields
-	var offset int
-	for ix := len(fields) - 1; ix >= 0; ix-- {
-		field := fields[ix]
-		key := field.Key()
-		flds := f
-		if res != nil {
-			flds = res[offset:]
-		}
-		var found bool
-		for _, v := range flds {
-			if v.Key() == key {
-				found = true
-				break
-			}
-		}
-		if found {
+// Add and encode fields.
+func (eF *encodedFields) AppendFields(fields []Field) *encodedFields {
+	for ix := 0; ix < len(fields); ix += 2 {
+		rawKey := fields[ix]
+		rawValue := fields[ix+1]
+
+		keyString, ok := rawKey.(string)
+		if !ok {
 			continue
 		}
-		// res contains the EncodedFields, starting at offset
-		if res == nil {
-			length := len(f)
-			offset = len(fields)
-			res = make(EncodedFields, offset+length)
-			copy(res[offset:], f)
+
+		key := toJSON(keyString)
+		value := toJSON(rawValue)
+
+		if i := eF.Index(key); i >= 0 {
+			(*eF)[i][1] = value
+			continue
 		}
-		offset--
-		res[offset] = field
+
+		*eF = append(*eF, encodedField{key, value})
 	}
-	if res == nil {
-		// Nothing new has been added
-		return f
+	return eF
+}
+
+// AppendUnique encoded field if the key is not already set
+func (eF *encodedFields) AppendEncoded(fields encodedFields) *encodedFields {
+	if eF == nil {
+		return eF
 	}
-	return res[offset:]
+	for _, f := range fields {
+		if i := eF.Index(f.Key()); i >= 0 {
+			(*eF)[i][1] = f.Value()
+		} else {
+			*eF = append(*eF, f)
+		}
+	}
+	return eF
+}
+
+func (eF *encodedFields) Index(key string) int {
+	if eF == nil {
+		return -1
+	}
+	for i, v := range *eF {
+		if v.Key() == key {
+			return i
+		}
+	}
+	return -1
 }

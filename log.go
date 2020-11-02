@@ -24,8 +24,9 @@ import (
 
 // ULog is the antidote to modern loggers
 type ULog struct {
-	Fields                   EncodedFields
-	Writer                   io.Writer
+	Writer io.Writer
+
+	fields                   encodedFields
 	TimestampKey, MessageKey string `json:"-"`
 }
 
@@ -37,7 +38,8 @@ func New() ULog {
 // With returns a copy of the ULog instance with the provided fields preset for every subsequent call.
 func (u ULog) With(fields ...Field) ULog {
 	v := u
-	v.Fields = encodeFieldList(fields).PrependUnique(v.Fields)
+	ff := make(encodedFields, 0, len(fields)+len(v.fields))
+	v.fields = *ff.AppendEncoded(v.fields).AppendFields(fields)
 	return v
 }
 func (u ULog) WithKeyNames(timestampKey, messageKey string) ULog {
@@ -54,7 +56,7 @@ func (u ULog) WithKeyNames(timestampKey, messageKey string) ULog {
 
 var (
 	scratchBuffers = sync.Pool{New: func() interface{} { x := make([]byte, 0, 1024); return bytes.NewBuffer(x) }}
-	scratchFields  = sync.Pool{New: func() interface{} { var x EncodedFields; return &x }}
+	scratchFields  = sync.Pool{New: func() interface{} { var x encodedFields; return &x }}
 )
 
 const (
@@ -82,7 +84,7 @@ func (u ULog) Write(msg string, fields ...Field) {
 		msgKey = DefaultMessageKey
 	}
 
-	sF := scratchFields.Get().(*EncodedFields)
+	sF := scratchFields.Get().(*encodedFields)
 	sb := scratchBuffers.Get().(*bytes.Buffer)
 	defer func() {
 		*sF = (*sF)[:0]
@@ -91,12 +93,11 @@ func (u ULog) Write(msg string, fields ...Field) {
 		scratchBuffers.Put(sb)
 	}()
 
-	encodedFields := (*sF)[:0].
-		PrependUnique(encodeFieldList(fields)).
-		PrependUnique(u.Fields)
+	*sF = (*sF)[:0]
+	eF := sF.AppendEncoded(u.fields).AppendFields(fields)
 
 	var fieldsLen int
-	for _, field := range encodedFields {
+	for _, field := range *eF {
 		key := field.Key()
 		if key == msgKey || key == tsKey {
 			continue
@@ -115,7 +116,7 @@ func (u ULog) Write(msg string, fields ...Field) {
 	sb.WriteString(`": `)
 	json.NewEncoder(sb).Encode(msg)
 
-	for _, field := range encodedFields {
+	for _, field := range *eF {
 		key := field.Key()
 		if key == msgKey || key == tsKey {
 			continue
@@ -147,25 +148,4 @@ func toJSON(field Field) string {
 	}
 
 	return string(bytes)
-}
-
-func encodeFieldList(fields []Field) EncodedFields {
-	convertedFields := make(EncodedFields, 0, len(fields))
-
-	numFields := len(fields) / 2
-	for ix := 0; ix < numFields; ix++ {
-		rawKey := fields[ix*2]
-		rawValue := fields[ix*2+1]
-
-		keyString, ok := rawKey.(string)
-		if !ok {
-			continue
-		}
-
-		key := toJSON(keyString)
-		value := toJSON(rawValue)
-
-		convertedFields = append(convertedFields, EncodedField{key, value})
-	}
-	return convertedFields
 }

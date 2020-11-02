@@ -76,7 +76,6 @@ func TestOmitsUnknownTypes(t *testing.T) {
 	logLine := parseLogLine(buffer.Bytes())
 
 	expected := map[string]interface{}{
-		"Fields": nil,
 		"Writer": map[string]interface{}{},
 	}
 	require.EqualValues(t, expected, logLine["ulog"])
