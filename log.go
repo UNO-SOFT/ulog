@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"io"
 	"os"
+	"sync"
 	"time"
 )
 
@@ -35,9 +36,26 @@ func New() ULog {
 
 // With returns a copy of the ULog instance with the provided fields preset for every subsequent call.
 func (u ULog) With(fields ...Field) ULog {
-	u.Fields = encodeFieldList(fields).PrependUnique(u.Fields)
-	return u
+	v := u
+	v.Fields = encodeFieldList(fields).PrependUnique(v.Fields)
+	return v
 }
+func (u ULog) WithKeyNames(timestampKey, messageKey string) ULog {
+	v := u
+	if timestampKey == "" {
+		timestampKey = DefaultTimestampKey
+	}
+	if messageKey == "" {
+		messageKey = DefaultMessageKey
+	}
+	v.TimestampKey, v.MessageKey = timestampKey, messageKey
+	return v
+}
+
+var (
+	scratchBuffers = sync.Pool{New: func() interface{} { x := make([]byte, 0, 1024); return bytes.NewBuffer(x) }}
+	scratchFields  = sync.Pool{New: func() interface{} { var x EncodedFields; return &x }}
+)
 
 const (
 	DefaultTimestampKey = "ts"
@@ -55,10 +73,6 @@ const (
 func (u ULog) Write(msg string, fields ...Field) {
 	now := time.Now().UTC()
 
-	encodedFields := make(EncodedFields, 0, len(fields)+len(u.Fields)).
-		PrependUnique(encodeFieldList(fields)).
-		PrependUnique(u.Fields)
-
 	tsKey := u.TimestampKey
 	if tsKey == "" {
 		tsKey = DefaultTimestampKey
@@ -67,6 +81,20 @@ func (u ULog) Write(msg string, fields ...Field) {
 	if msgKey == "" {
 		msgKey = DefaultMessageKey
 	}
+
+	sF := scratchFields.Get().(*EncodedFields)
+	sb := scratchBuffers.Get().(*bytes.Buffer)
+	defer func() {
+		*sF = (*sF)[:0]
+		scratchFields.Put(sF)
+		sb.Reset()
+		scratchBuffers.Put(sb)
+	}()
+
+	encodedFields := (*sF)[:0].
+		PrependUnique(encodeFieldList(fields)).
+		PrependUnique(u.Fields)
+
 	var fieldsLen int
 	for _, field := range encodedFields {
 		key := field.Key()
@@ -76,7 +104,7 @@ func (u ULog) Write(msg string, fields ...Field) {
 		fieldsLen += 2 + len(key) + 2 + len(field.Value())
 	}
 
-	var sb bytes.Buffer
+	sb.Reset()
 	sb.Grow(3 + len(tsKey) + 4 + len(time.RFC3339) + 4 + len(msgKey) + 3 + 1 + len(msg) + 1 + fieldsLen + 2)
 	sb.WriteString(`{ "`)
 	sb.WriteString(tsKey)
@@ -85,7 +113,7 @@ func (u ULog) Write(msg string, fields ...Field) {
 	sb.WriteString(`", "`)
 	sb.WriteString(msgKey)
 	sb.WriteString(`": `)
-	json.NewEncoder(&sb).Encode(msg)
+	json.NewEncoder(sb).Encode(msg)
 
 	for _, field := range encodedFields {
 		key := field.Key()

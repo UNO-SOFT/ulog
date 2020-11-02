@@ -18,6 +18,10 @@ func With(fields ...Field) ULog {
 	return uLog.With(fields...)
 }
 
+func WithKeyNames(timestampKey, messageKey string) ULog {
+	return uLog.WithKeyNames(timestampKey, messageKey)
+}
+
 // Write a message using the standard ULog instance
 func Write(msg string, fields ...Field) {
 	uLog.Write(msg, fields...)
