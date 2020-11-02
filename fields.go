@@ -5,6 +5,12 @@
 
 package ulog
 
+import (
+	"bytes"
+	"encoding/json"
+	"sync"
+)
+
 // Field type for all inputs
 type Field interface{}
 
@@ -26,6 +32,11 @@ type encodedFields []encodedField
 
 // Add and encode fields.
 func (eF *encodedFields) AppendFields(fields []Field) *encodedFields {
+	if eF == nil {
+		return eF
+	}
+	eF.Grow(len(fields) / 2)
+	js := scratchJS.Get().(*jsonEncoder)
 	for ix := 0; ix < len(fields); ix += 2 {
 		rawKey := fields[ix]
 		rawValue := fields[ix+1]
@@ -35,8 +46,8 @@ func (eF *encodedFields) AppendFields(fields []Field) *encodedFields {
 			continue
 		}
 
-		key := toJSON(keyString)
-		value := toJSON(rawValue)
+		key := js.JSON(keyString)
+		value := js.JSON(rawValue)
 
 		if i := eF.Index(key); i >= 0 {
 			(*eF)[i][1] = value
@@ -45,6 +56,7 @@ func (eF *encodedFields) AppendFields(fields []Field) *encodedFields {
 
 		*eF = append(*eF, encodedField{key, value})
 	}
+	scratchJS.Put(js)
 	return eF
 }
 
@@ -53,6 +65,7 @@ func (eF *encodedFields) AppendEncoded(fields encodedFields) *encodedFields {
 	if eF == nil {
 		return eF
 	}
+	eF.Grow(len(fields))
 	for _, f := range fields {
 		if i := eF.Index(f.Key()); i >= 0 {
 			(*eF)[i][1] = f.Value()
@@ -85,3 +98,33 @@ func (eF *encodedFields) Grow(length int) *encodedFields {
 }
 
 func (eF *encodedFields) Reset() *encodedFields { *eF = (*eF)[:0]; return eF }
+
+type jsonEncoder struct {
+	buf *bytes.Buffer
+	enc *json.Encoder
+}
+
+var scratchJS = sync.Pool{New: func() interface{} {
+	js := jsonEncoder{buf: scratchBuffers.Get().(*bytes.Buffer)}
+	js.buf.Reset()
+	js.enc = json.NewEncoder(js.buf)
+	return &js
+}}
+
+func (js *jsonEncoder) JSON(v interface{}) string {
+	if err, ok := v.(error); ok {
+		v = err.Error()
+	}
+	js.buf.Reset()
+	if err := js.enc.Encode(v); err != nil {
+		return err.Error()
+	}
+	b := js.buf.Bytes()
+	if len(b) == 0 {
+		return ""
+	}
+	if b[len(b)-1] == '\n' {
+		b = b[:len(b)-1]
+	}
+	return string(b)
+}

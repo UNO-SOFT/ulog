@@ -389,3 +389,12 @@ func BenchmarkLogWithComplexFieldsInContext(b *testing.B) {
 		logger.Write("a message", "simple field", "test")
 	}
 }
+
+/*
+func TestKitLog(t *testing.T) {
+	var buf bytes.Buffer
+	logger := log.With(ulog.WithWriter(&buf), "a", "b")
+	logger.Log("msg", "message")
+	t.Log(buf.String())
+}
+*/

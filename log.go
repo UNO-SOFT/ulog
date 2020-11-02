@@ -16,23 +16,25 @@ package ulog
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"sync"
 	"time"
+	"unsafe"
 )
 
 // ULog is the antidote to modern loggers
 type ULog struct {
-	Writer io.Writer
-
-	fields                   encodedFields
+	Writer                   io.Writer
 	TimestampKey, MessageKey string `json:"-"`
+
+	fields encodedFields
 }
 
 // New instance of ULog
 func New() ULog {
-	return ULog{TimestampKey: DefaultTimestampKey, MessageKey: DefaultMessageKey}
+	return ULog{TimestampKey: DefaultTimestampKey, MessageKey: DefaultMessageKey, Writer: DefaultWriter}
 }
 
 // With returns a copy of the ULog instance with the provided fields preset for every subsequent call.
@@ -44,6 +46,8 @@ func (u ULog) With(fields ...Field) ULog {
 	v.fields = *ff.AppendEncoded(v.fields).AppendFields(fields)
 	return v
 }
+
+// WithKeyNames returns a copy of the ULog instance with the provided key names for timestamp and message keys.
 func (u ULog) WithKeyNames(timestampKey, messageKey string) ULog {
 	v := u
 	if timestampKey == "" {
@@ -56,9 +60,57 @@ func (u ULog) WithKeyNames(timestampKey, messageKey string) ULog {
 	return v
 }
 
+// Log makes ULog implement github.com/go-kit/kit/log.Logger.
+func (u ULog) Log(keyvals ...interface{}) error {
+	if len(keyvals) == 0 {
+		return nil
+	}
+	if u.MessageKey == "" {
+		u.MessageKey = DefaultMessageKey
+	}
+	var msg string
+	var ok bool
+	if len(keyvals)%2 != 0 {
+		if msg, ok = keyvals[0].(string); !ok {
+			msg = fmt.Sprintf("%v", keyvals[0])
+		}
+		u.Log(append(append(make([]interface{}, 0, 1+len(keyvals)), u.MessageKey), keyvals...)...)
+		return nil
+	}
+
+	fields := *((*[]Field)(unsafe.Pointer(&keyvals)))
+	if u.TimestampKey == "" {
+		u.TimestampKey = DefaultTimestampKey
+	}
+	for i := 0; i < len(fields); i += 2 {
+		s, ok := fields[i].(string)
+		if ok {
+			if s == u.MessageKey && msg == "" {
+				if msg, ok = fields[i+1].(string); !ok {
+					msg = fmt.Sprintf("%v", keyvals[i+1])
+				}
+				fields[i], fields[i+1] = fields[0], fields[1]
+				fields = fields[2:]
+				i -= 2
+			} else if s == u.TimestampKey {
+				if _, ok = fields[i+1].(time.Time); ok {
+					fields[i], fields[i+1] = fields[0], fields[1]
+					fields = fields[2:]
+					i -= 2
+				}
+			}
+		}
+	}
+
+	u.Write(msg, fields...)
+	return nil
+}
+
 var (
 	scratchBuffers = sync.Pool{New: func() interface{} { x := make([]byte, 0, 1024); return bytes.NewBuffer(x) }}
 	scratchFields  = sync.Pool{New: func() interface{} { var x encodedFields; return &x }}
+
+	DefaultWriter = os.Stderr
 )
 
 const (
@@ -110,7 +162,11 @@ func (u ULog) Write(msg string, fields ...Field) {
 	sb.WriteString(`", "`)
 	sb.WriteString(msgKey)
 	sb.WriteString(`": `)
+
 	_ = json.NewEncoder(sb).Encode(msg)
+	if sb.Bytes()[sb.Len()-1] == '\n' {
+		sb.Truncate(sb.Len() - 1)
+	}
 
 	for _, field := range *eF {
 		key := field.Key()
@@ -126,26 +182,11 @@ func (u ULog) Write(msg string, fields ...Field) {
 
 	w := u.Writer
 	if w == nil {
-		w = os.Stderr
+		w = DefaultWriter
 	}
 	_, _ = w.Write(sb.Bytes())
 
 	scratchFields.Put(eF.Reset())
 	sb.Reset()
 	scratchBuffers.Put(sb)
-}
-
-func toJSON(field Field) string {
-	// In the case of errors, explicitly destructure them
-	if err, ok := field.(error); ok {
-		field = err.Error()
-	}
-
-	// For anything else, just let json.Marshal do it
-	bytes, err := json.Marshal(field)
-	if err != nil {
-		return string(err.Error())
-	}
-
-	return string(bytes)
 }

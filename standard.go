@@ -18,6 +18,7 @@ func With(fields ...Field) ULog {
 	return uLog.With(fields...)
 }
 
+// WithKeyNames returns a copy of the ULog instance with the provided key names for timestamp and message keys.
 func WithKeyNames(timestampKey, messageKey string) ULog {
 	return uLog.WithKeyNames(timestampKey, messageKey)
 }
@@ -25,4 +26,9 @@ func WithKeyNames(timestampKey, messageKey string) ULog {
 // Write a message using the standard ULog instance
 func Write(msg string, fields ...Field) {
 	uLog.Write(msg, fields...)
+}
+
+// Log is the same as go-kit/kit/log.Log.
+func Log(keyvals ...interface{}) error {
+	return uLog.Log(keyvals...)
 }
