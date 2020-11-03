@@ -8,6 +8,9 @@ package ulog
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
+	"fmt"
+	"runtime"
 	"sync"
 )
 
@@ -111,9 +114,64 @@ var scratchJS = sync.Pool{New: func() interface{} {
 	return &js
 }}
 
+type wrappedErr struct {
+	Err, Details string
+	err          error
+}
+
+func WrapError(err error) error {
+	if err == nil {
+		return nil
+	}
+
+	var pc [16]uintptr
+	n := runtime.Callers(5, pc[:])
+	var frames *runtime.Frames
+	if n != 0 {
+		frames = runtime.CallersFrames(pc[:n])
+	}
+	if frames == nil {
+		return err
+	}
+	we := wrappedErr{err: err, Err: err.Error()}
+	sb := scratchBuffers.Get().(*bytes.Buffer)
+	sb.Reset()
+	sb.WriteString(we.Err)
+	// Loop to get frames.
+	// A fixed number of pcs can expand to an indefinite number of Frames.
+	for {
+		frame, more := frames.Next()
+		fmt.Fprintf(sb, "\n- %s:%d:%s", frame.File, frame.Line, frame.Function)
+		if !more {
+			break
+		}
+	}
+	we.Details = sb.String()
+	scratchBuffers.Put(sb)
+	return &we
+}
+
+// StackTrace returns stack trace of an error.
+func (we *wrappedErr) Error() string { return we.Err }
+func (we *wrappedErr) Unwrap() error { return we.err }
+func (we *wrappedErr) Format(f fmt.State, c rune) {
+	if f.Flag('#') {
+		fmt.Fprint(f, we.err)
+	} else if f.Flag('+') {
+		f.Write([]byte(we.Details))
+	} else {
+		f.Write([]byte(we.Err))
+	}
+}
+
 func (js *jsonEncoder) JSON(v interface{}) string {
-	if err, ok := v.(error); ok {
-		v = err.Error()
+	if err, ok := v.(error); ok && err != nil {
+		var we *wrappedErr
+		if errors.As(err, &we) {
+			v = we.Details
+		} else {
+			v = fmt.Sprintf("%+v", err)
+		}
 	}
 	js.buf.Reset()
 	if err := js.enc.Encode(v); err != nil {

@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"testing"
 	"time"
 
@@ -146,6 +147,7 @@ func TestLogsErrors(t *testing.T) {
 	logger.Write("this is a test", "error", errors.New("an error occurred"))
 	logLine := parseLogLine(buffer.Bytes())
 
+	t.Logf("line: %q", buffer.String())
 	require.EqualValues(t, "an error occurred", logLine["error"])
 }
 
@@ -398,3 +400,13 @@ func TestKitLog(t *testing.T) {
 	t.Log(buf.String())
 }
 */
+
+func TestError(t *testing.T) {
+	var buf bytes.Buffer
+	logger := ulog.WithWriter(&buf)
+	f := func() error {
+		return io.EOF
+	}
+	logger.Write("msg", "error", fmt.Errorf("deep: %w", fmt.Errorf("io: %w", ulog.WrapError(f()))))
+	t.Log(buf.String())
+}
