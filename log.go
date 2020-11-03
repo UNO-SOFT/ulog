@@ -116,6 +116,8 @@ var (
 const (
 	DefaultTimestampKey = "ts"
 	DefaultMessageKey   = "msg"
+
+	timeFormat = "2006-01-02T15:04:05.999999"
 )
 
 // Write a JSON message to the configured writer or os.Stderr.
@@ -154,12 +156,12 @@ func (u ULog) Write(msg string, fields ...Field) {
 
 	sb := scratchBuffers.Get().(*bytes.Buffer)
 	sb.Reset()
-	sb.Grow(3 + len(tsKey) + 4 + len(time.RFC3339) + 4 + len(msgKey) + 3 + 1 + len(msg) + 1 + fieldsLen + 3)
+	sb.Grow(3 + len(tsKey) + 4 + len(timeFormat) + 5 + len(msgKey) + 3 + 1 + len(msg) + 1 + fieldsLen + 3)
 	sb.WriteString(`{ "`)
 	sb.WriteString(tsKey)
 	sb.WriteString(`": "`)
-	sb.WriteString(now.Format(time.RFC3339))
-	sb.WriteString(`", "`)
+	sb.WriteString(now.Format(timeFormat))
+	sb.WriteString(`Z", "`)
 	sb.WriteString(msgKey)
 	sb.WriteString(`": `)
 
