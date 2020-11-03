@@ -154,7 +154,7 @@ func (u ULog) Write(msg string, fields ...Field) {
 
 	sb := scratchBuffers.Get().(*bytes.Buffer)
 	sb.Reset()
-	sb.Grow(3 + len(tsKey) + 4 + len(time.RFC3339) + 4 + len(msgKey) + 3 + 1 + len(msg) + 1 + fieldsLen + 2)
+	sb.Grow(3 + len(tsKey) + 4 + len(time.RFC3339) + 4 + len(msgKey) + 3 + 1 + len(msg) + 1 + fieldsLen + 3)
 	sb.WriteString(`{ "`)
 	sb.WriteString(tsKey)
 	sb.WriteString(`": "`)
@@ -178,7 +178,7 @@ func (u ULog) Write(msg string, fields ...Field) {
 		sb.WriteString(`: `)
 		sb.WriteString(field.Value())
 	}
-	sb.WriteString(` }`)
+	sb.WriteString(" }\n")
 
 	w := u.Writer
 	if w == nil {
