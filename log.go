@@ -165,7 +165,14 @@ func (u ULog) Write(msg string, fields ...Field) {
 	sb.WriteString(msgKey)
 	sb.WriteString(`": `)
 
-	_ = json.NewEncoder(sb).Encode(msg)
+	{
+		n := sb.Len()
+		enc := json.NewEncoder(sb)
+		if err := enc.Encode(msg); err != nil {
+			sb.Truncate(n)
+			enc.Encode(fmt.Sprintf("%v", msg))
+		}
+	}
 	if sb.Bytes()[sb.Len()-1] == '\n' {
 		sb.Truncate(sb.Len() - 1)
 	}

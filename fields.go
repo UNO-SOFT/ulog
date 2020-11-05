@@ -175,7 +175,10 @@ func (js *jsonEncoder) JSON(v interface{}) string {
 	}
 	js.buf.Reset()
 	if err := js.enc.Encode(v); err != nil {
-		return err.Error()
+		js.buf.Reset()
+		if err = js.enc.Encode(fmt.Sprintf("%v", v)); err != nil {
+			return err.Error()
+		}
 	}
 	b := js.buf.Bytes()
 	if len(b) == 0 {

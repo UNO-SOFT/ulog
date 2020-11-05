@@ -410,3 +410,10 @@ func TestError(t *testing.T) {
 	logger.Write("msg", "error", fmt.Errorf("deep: %w", fmt.Errorf("io: %w", ulog.WrapError(f()))))
 	t.Log(buf.String())
 }
+
+func TestMarshalError(t *testing.T) {
+	var buf bytes.Buffer
+	logger := ulog.WithWriter(&buf)
+	logger.Write("channel", "chan", make(chan int))
+	t.Log(buf.String())
+}
