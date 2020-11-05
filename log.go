@@ -68,11 +68,10 @@ func (u ULog) Log(keyvals ...interface{}) error {
 	if u.MessageKey == "" {
 		u.MessageKey = DefaultMessageKey
 	}
-	var msg string
 	var ok bool
 	if len(keyvals)%2 != 0 {
-		if msg, ok = keyvals[0].(string); !ok {
-			msg = fmt.Sprintf("%v", keyvals[0])
+		if _, ok = keyvals[0].(string); !ok {
+			keyvals[0] = fmt.Sprintf("%v", keyvals[0])
 		}
 		u.Log(append(append(make([]interface{}, 0, 1+len(keyvals)), u.MessageKey), keyvals...)...)
 		return nil
@@ -82,6 +81,7 @@ func (u ULog) Log(keyvals ...interface{}) error {
 	if u.TimestampKey == "" {
 		u.TimestampKey = DefaultTimestampKey
 	}
+	var msg string
 	for i := 0; i < len(fields); i += 2 {
 		s, ok := fields[i].(string)
 		if ok {
