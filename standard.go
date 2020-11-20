@@ -4,7 +4,11 @@
 
 package ulog
 
-import "io"
+import (
+	"context"
+	"io"
+	"io/ioutil"
+)
 
 var uLog = New()
 
@@ -32,3 +36,28 @@ func Write(msg string, fields ...Field) {
 func Log(keyvals ...interface{}) error {
 	return uLog.Log(keyvals...)
 }
+
+// WithContext returns a Context, storing the default ULog in it.
+func WithContext(ctx context.Context) context.Context {
+	return uLog.WithContext(ctx)
+}
+
+// WithContext returns a Context, storing the ULog in int.
+func (u ULog) WithContext(ctx context.Context) context.Context {
+	return context.WithValue(ctx, logCtxKey, uLog)
+}
+
+// FromContext returns the ULog from the Context,
+// or a disabled logger if no logger is set on the Context.
+func FromContext(ctx context.Context) ULog {
+	if I := ctx.Value(logCtxKey); I != nil {
+		if lgr, ok := I.(ULog); ok {
+			return lgr
+		}
+	}
+	return ULog{Writer: ioutil.Discard}
+}
+
+type ctxKey string
+
+const logCtxKey = ctxKey("ULog")
