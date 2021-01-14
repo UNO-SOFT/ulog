@@ -44,13 +44,13 @@ func WithContext(ctx context.Context) context.Context {
 
 // WithContext returns a Context, storing the ULog in int.
 func (u ULog) WithContext(ctx context.Context) context.Context {
-	return context.WithValue(ctx, logCtxKey, uLog)
+	return context.WithValue(ctx, logCtxKey{}, uLog)
 }
 
 // FromContext returns the ULog from the Context,
 // or a disabled logger if no logger is set on the Context.
 func FromContext(ctx context.Context) ULog {
-	if I := ctx.Value(logCtxKey); I != nil {
+	if I := ctx.Value(logCtxKey{}); I != nil {
 		if lgr, ok := I.(ULog); ok {
 			return lgr
 		}
@@ -58,6 +58,5 @@ func FromContext(ctx context.Context) ULog {
 	return ULog{Writer: ioutil.Discard}
 }
 
-type ctxKey string
-
-const logCtxKey = ctxKey("ULog")
+// See https://groups.google.com/g/golang-nuts/c/AmNNVRL6R70/m/ClLDp1tDAAAJ
+type logCtxKey struct{}
