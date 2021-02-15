@@ -164,8 +164,8 @@ func TestLogsNilErrors(t *testing.T) {
 
 type OuterStruct struct {
 	Name         string
-	Inner        InnerStruct
 	AnotherField string
+	Inner        InnerStruct
 }
 
 type InnerStruct struct {
@@ -209,8 +209,8 @@ func TestHandlesNestedStructs(t *testing.T) {
 
 type TaggedStruct struct {
 	Name        string `json:"name"`
-	Age         int    `json:"age"`
 	NotIncluded string `json:"-"`
+	Age         int    `json:"age"`
 }
 
 func TestHandlesStructTags(t *testing.T) {

@@ -115,8 +115,8 @@ var scratchJS = sync.Pool{New: func() interface{} {
 }}
 
 type wrappedErr struct {
-	Err, Details string
 	err          error
+	Err, Details string
 }
 
 func WrapError(err error) error {
