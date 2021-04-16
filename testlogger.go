@@ -4,14 +4,23 @@
 
 package ulog
 
-func NewTestLogger(t interface{ Log(...interface{}) }) ULog {
-	return ULog{TimestampKey: DefaultTimestampKey, MessageKey: DefaultMessageKey,
-		Writer: testLogWriter(t.Log)}
+type testLogger interface {
+	Log(...interface{})
 }
 
-type testLogWriter func(...interface{})
+func NewTestLogger(t testLogger) ULog {
+	return ULog{TimestampKey: DefaultTimestampKey, MessageKey: DefaultMessageKey,
+		Writer: testLogWriter{t}}
+}
+
+type testLogWriter struct {
+	testLogger
+}
 
 func (tw testLogWriter) Write(p []byte) (int, error) {
-	tw(string(p))
+	if helper, ok := tw.testLogger.(interface{ Helper() }); ok {
+		helper.Helper()
+	}
+	tw.Log(string(p))
 	return len(p), nil
 }
