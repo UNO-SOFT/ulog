@@ -417,3 +417,8 @@ func TestMarshalError(t *testing.T) {
 	logger.Write("channel", "chan", make(chan int))
 	t.Log(buf.String())
 }
+
+func TestTestLogger(t *testing.T) {
+	logger := ulog.NewTestLogger(t)
+	logger.Log("msg", "test")
+}
