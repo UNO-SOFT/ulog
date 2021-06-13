@@ -20,7 +20,7 @@ import (
 func parseLogLine(b []byte) (v map[string]interface{}) {
 	err := json.Unmarshal(b, &v)
 	if err != nil {
-		panic(fmt.Errorf("%q: %+v", string(b), err))
+		panic(fmt.Errorf("%q: %w", string(b), err))
 	}
 	return
 }

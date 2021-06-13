@@ -1,4 +1,4 @@
-// Copyright 2020 Tamás Gulácsi.
+// Copyright 2020, 2021 Tamás Gulácsi.
 // Copyright 2019 The Antilog Authors.
 //
 // SPDX-License-Identifier: MIT
