@@ -15,13 +15,14 @@ package ulog
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"sync"
 	"time"
 	"unsafe"
+
+	json "github.com/goccy/go-json"
 )
 
 // ULog is the antidote to modern loggers

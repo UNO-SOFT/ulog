@@ -7,12 +7,14 @@ package ulog
 
 import (
 	"bytes"
-	"encoding/json"
+	stdjson "encoding/json"
 	"errors"
 	"fmt"
 	"runtime"
 	"strings"
 	"sync"
+
+	json "github.com/goccy/go-json"
 )
 
 // Field type for all inputs
@@ -104,8 +106,9 @@ func (eF *encodedFields) Grow(length int) *encodedFields {
 func (eF *encodedFields) Reset() *encodedFields { *eF = (*eF)[:0]; return eF }
 
 type jsonEncoder struct {
-	buf *strings.Builder
-	enc *json.Encoder
+	buf    *strings.Builder
+	enc    *json.Encoder
+	stdEnc *stdjson.Encoder
 }
 
 var scratchJS = sync.Pool{
@@ -177,8 +180,13 @@ func (js *jsonEncoder) JSON(v interface{}) string {
 	}
 	js.buf.Reset()
 	if err := js.enc.Encode(v); err != nil {
-		js.buf.Reset()
-		js.enc.Encode(err.Error())
+		if js.stdEnc == nil {
+			js.stdEnc = stdjson.NewEncoder(js.buf)
+		}
+		if err = js.stdEnc.Encode(v); err != nil {
+			js.buf.Reset()
+			js.enc.Encode(err.Error())
+		}
 	}
 	return strings.TrimSpace(js.buf.String())
 }
