@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"runtime"
+	"strings"
 	"sync"
 )
 
@@ -103,16 +104,17 @@ func (eF *encodedFields) Grow(length int) *encodedFields {
 func (eF *encodedFields) Reset() *encodedFields { *eF = (*eF)[:0]; return eF }
 
 type jsonEncoder struct {
-	buf *bytes.Buffer
+	buf *strings.Builder
 	enc *json.Encoder
 }
 
-var scratchJS = sync.Pool{New: func() interface{} {
-	js := jsonEncoder{buf: scratchBuffers.Get().(*bytes.Buffer)}
-	js.buf.Reset()
-	js.enc = json.NewEncoder(js.buf)
-	return &js
-}}
+var scratchJS = sync.Pool{
+	New: func() interface{} {
+		js := jsonEncoder{buf: &strings.Builder{}}
+		js.enc = json.NewEncoder(js.buf)
+		return &js
+	},
+}
 
 type wrappedErr struct {
 	err          error
@@ -178,12 +180,5 @@ func (js *jsonEncoder) JSON(v interface{}) string {
 		js.buf.Reset()
 		js.enc.Encode(err.Error())
 	}
-	b := js.buf.Bytes()
-	if len(b) == 0 {
-		return ""
-	}
-	if b[len(b)-1] == '\n' {
-		b = b[:len(b)-1]
-	}
-	return string(b)
+	return strings.TrimSpace(js.buf.String())
 }
