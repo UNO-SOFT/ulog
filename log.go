@@ -160,7 +160,8 @@ func (u ULog) Write(msg string, fields ...Field) {
 	sb.WriteString(`{ "`)
 	sb.WriteString(tsKey)
 	sb.WriteString(`": "`)
-	sb.WriteString(now.Format(timeFormat))
+	var a [len(timeFormat)]byte
+	sb.Write(now.AppendFormat(a[:0], timeFormat))
 	sb.WriteString(`Z", "`)
 	sb.WriteString(msgKey)
 	sb.WriteString(`": `)
